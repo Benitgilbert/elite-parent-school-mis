@@ -47,6 +47,12 @@ Students APIs
 - PATCH /students/{id} — update any mutable fields
 - DELETE /students/{id}
 
+Secretary (Registrar) — Applications
+- Public submit: POST /public/applications/ { first_name, last_name, date_of_birth?, gender?, class_name?, guardian_contact?, email? }
+- List pending: GET /secretary/applications/?status=pending (roles: Registrar/Secretary, Headmaster, IT Support)
+- Approve: POST /secretary/applications/{id}/approve { admission_no, class_name? } → creates Student
+- Reject: POST /secretary/applications/{id}/reject { reason }
+
 Lint/format (planned per README; run once configured)
 - Ruff check: ruff check backend/
 - Format (Black or Ruff): black backend/  (or)  ruff format backend/

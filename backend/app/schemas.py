@@ -79,3 +79,36 @@ class StudentOut(BaseModel):
     guardian_contact: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ApplicationCreate(BaseModel):
+    first_name: str
+    last_name: str
+    date_of_birth: str | None = None
+    gender: str | None = None
+    class_name: str | None = None
+    guardian_contact: str | None = None
+    email: str | None = None
+
+
+class ApplicationOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    date_of_birth: str | None = None
+    gender: str | None = None
+    class_name: str | None = None
+    guardian_contact: str | None = None
+    email: str | None = None
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApplicationApprove(BaseModel):
+    admission_no: str
+    class_name: str | None = None
+
+
+class ApplicationReject(BaseModel):
+    reason: str

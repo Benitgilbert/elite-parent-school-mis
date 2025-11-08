@@ -67,3 +67,20 @@ class Student(Base):
     __table_args__ = (
         UniqueConstraint("admission_no", name="uq_students_admission_no"),
     )
+
+
+class StudentApplication(Base):
+    __tablename__ = "student_applications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    date_of_birth: Mapped[Date | None] = mapped_column(Date)
+    gender: Mapped[str | None] = mapped_column(String(20))
+    class_name: Mapped[str | None] = mapped_column(String(50))
+    guardian_contact: Mapped[str | None] = mapped_column(String(100))
+    email: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")  # pending|approved|rejected
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    processed_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True))
+    decision_reason: Mapped[str | None] = mapped_column(Text)
