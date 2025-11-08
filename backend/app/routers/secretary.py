@@ -8,7 +8,10 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..db import get_db
 from ..auth import require_roles
-from ..mailer import send_email
+from ..mailer import send_email, send_email_advanced
+from .. import settings
+from ..pdf import render_application_receipt
+import os
 
 router = APIRouter(prefix="/secretary/applications", tags=["secretary"]) 
 
@@ -67,15 +70,37 @@ def approve_application(app_id: int, payload: schemas.ApplicationApprove, _: mod
 
     # notify applicant
     if app.email:
-        send_email(
+        # Ensure uploads dir
+        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+        # Generate receipt PDF
+        pdf_bytes = render_application_receipt(app, student)
+        receipt_name = f"receipt_{app.reference}.pdf"
+        receipt_path = os.path.join(settings.UPLOAD_DIR, receipt_name)
+        try:
+            with open(receipt_path, "wb") as f:
+                f.write(pdf_bytes)
+        except Exception:
+            pass
+
+        html = (
+            f"<p>Dear {app.first_name} {app.last_name},</p>"
+            f"<p>Your application (ref: <b>{app.reference}</b>) has been <b>approved</b>.</p>"
+            f"<p>Admission number: <b>{student.admission_no}</b><br/>Class: <b>{student.class_name or ''}</b></p>"
+            f"<p>Attached is your admission receipt (PDF).</p>"
+            f"<p>Regards,<br/>Registrar</p>"
+        )
+        text = (
+            f"Dear {app.first_name} {app.last_name},\n\n"
+            f"Your application (ref: {app.reference}) has been approved.\n"
+            f"Admission number: {student.admission_no}. Class: {student.class_name or ''}.\n\n"
+            f"Regards, Registrar"
+        )
+        send_email_advanced(
             to=app.email,
-            subject="Your application has been approved",
-            body=(
-                f"Dear {app.first_name} {app.last_name},\n\n"
-                f"Your application (ref: {app.reference}) has been approved. "
-                f"Admission number: {student.admission_no}. Class: {student.class_name or ''}.\n\n"
-                f"Regards, Registrar"
-            ),
+            subject="Application Approved",
+            text_body=text,
+            html_body=html,
+            attachments=[(receipt_name, pdf_bytes, "application/pdf")],
         )
 
     return student
@@ -98,15 +123,23 @@ def reject_application(app_id: int, payload: schemas.ApplicationReject, _: model
 
     # notify applicant
     if app.email:
-        send_email(
+        html = (
+            f"<p>Dear {app.first_name} {app.last_name},</p>"
+            f"<p>Your application (ref: <b>{app.reference}</b>) has been <b>rejected</b>.</p>"
+            f"<p>Reason: {payload.reason}</p>"
+            f"<p>Regards,<br/>Registrar</p>"
+        )
+        text = (
+            f"Dear {app.first_name} {app.last_name},\n\n"
+            f"Your application (ref: {app.reference}) has been rejected. Reason: {payload.reason}.\n\n"
+            f"Regards, Registrar"
+        )
+        send_email_advanced(
             to=app.email,
-            subject="Your application has been rejected",
-            body=(
-                f"Dear {app.first_name} {app.last_name},\n\n"
-                f"Your application (ref: {app.reference}) has been rejected. "
-                f"Reason: {payload.reason}.\n\n"
-                f"Regards, Registrar"
-            ),
+            subject="Application Rejected",
+            text_body=text,
+            html_body=html,
+            attachments=[],
         )
 
     return app
