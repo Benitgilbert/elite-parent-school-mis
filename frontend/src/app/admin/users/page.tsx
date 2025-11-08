@@ -17,7 +17,7 @@ export default function AdminUsersPage() {
   const [form, setForm] = useState({ email: "", full_name: "", password: "", role_names: [] as string[] });
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<{ full_name: string; is_active: boolean; password?: string; role_names: string[] } | null>(null);
+  const [editForm, setEditForm] = useState<{ full_name: string; is_active: boolean; password?: string; confirm?: string; role_names: string[] } | null>(null);
 
   const load = async () => {
     setError(null);
@@ -66,11 +66,20 @@ export default function AdminUsersPage() {
 
   const saveEdit = async () => {
     if (editingId == null || !editForm) return;
+    if (editForm.password && editForm.password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+    if (editForm.password && editForm.password !== (editForm.confirm ?? "")) {
+      setError("Passwords do not match");
+      return;
+    }
+    const { confirm, ...payload } = editForm as any;
     const res = await fetch(base + `/admin/users/${editingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(editForm),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({} as any));
@@ -177,6 +186,10 @@ export default function AdminUsersPage() {
                           {r.name}
                         </label>
                       ))}
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input type="password" placeholder="New password" value={editForm?.password ?? ""} onChange={e => setEditForm({ ...(editForm as any), password: e.target.value })} />
+                        <input type="password" placeholder="Confirm" value={editForm?.confirm ?? ""} onChange={e => setEditForm({ ...(editForm as any), confirm: e.target.value })} />
+                      </div>
                     </div>
                   ) : (
                     u.roles.join(", ")

@@ -40,6 +40,13 @@ Admin APIs
 - PATCH /admin/users/{id} — update { full_name?, is_active?, password?, role_names? }
 - DELETE /admin/users/{id}
 
+Students APIs
+- GET /students/ — list (skip, limit)
+- POST /students/ — create { admission_no, first_name, last_name, date_of_birth?, gender?, class_name?, guardian_contact? }
+- GET /students/{id}
+- PATCH /students/{id} — update any mutable fields
+- DELETE /students/{id}
+
 Lint/format (planned per README; run once configured)
 - Ruff check: ruff check backend/
 - Format (Black or Ruff): black backend/  (or)  ruff format backend/

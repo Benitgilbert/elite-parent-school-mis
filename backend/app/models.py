@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Table, Column, Integer, String, Boolean, DateTime, ForeignKey, Text, func, UniqueConstraint
+from sqlalchemy import Table, Column, Integer, String, Boolean, DateTime, Date, ForeignKey, Text, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -48,4 +48,22 @@ class Role(Base):
 
     __table_args__ = (
         UniqueConstraint("name", name="uq_roles_name"),
+    )
+
+
+class Student(Base):
+    __tablename__ = "students"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    admission_no: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    date_of_birth: Mapped[Date | None] = mapped_column(Date)
+    gender: Mapped[str | None] = mapped_column(String(20))
+    class_name: Mapped[str | None] = mapped_column(String(50))
+    guardian_contact: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("admission_no", name="uq_students_admission_no"),
     )
