@@ -10,3 +10,4 @@ python-multipart
 redis
 weasyprint
 openpyxl
+pytest

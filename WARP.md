@@ -47,10 +47,10 @@ Lint/format (planned per README; run once configured)
 Type-check (planned)
 - mypy backend/
 
-Tests (planned)
+Tests
 - All tests: pytest backend/
-- Single test file: pytest backend/tests/test_example.py
-- Single test function: pytest backend/tests/test_example.py::test_case
+- Single file: pytest backend/tests/test_auth_admin.py
+- Single test: pytest backend/tests/test_auth_admin.py::test_auth_cookie_and_me
 
 Seed data (roles and an admin user)
 - Set environment variables then run (from backend/):

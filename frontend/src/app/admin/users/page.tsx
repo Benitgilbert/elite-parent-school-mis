@@ -16,6 +16,8 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [form, setForm] = useState({ email: "", full_name: "", password: "", role_names: [] as string[] });
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<{ full_name: string; is_active: boolean; password?: string; role_names: string[] } | null>(null);
 
   const load = async () => {
     setError(null);
@@ -52,6 +54,30 @@ export default function AdminUsersPage() {
 
   const del = async (id: number) => {
     await fetch(base + `/admin/users/${id}`, { method: "DELETE", credentials: "include" });
+    await load();
+  };
+
+  const startEdit = (u: User) => {
+    setEditingId(u.id);
+    setEditForm({ full_name: u.full_name ?? "", is_active: !!u.is_active, role_names: [...u.roles] });
+  };
+
+  const cancelEdit = () => { setEditingId(null); setEditForm(null); };
+
+  const saveEdit = async () => {
+    if (editingId == null || !editForm) return;
+    const res = await fetch(base + `/admin/users/${editingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(editForm),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as any));
+      setError(body?.detail ?? `Error ${res.status}`);
+      return;
+    }
+    setEditingId(null); setEditForm(null);
     await load();
   };
 
@@ -120,11 +146,54 @@ export default function AdminUsersPage() {
               <tr key={u.id}>
                 <td>{u.id}</td>
                 <td>{u.email}</td>
-                <td>{u.full_name ?? ""}</td>
-                <td>{String(u.is_active ?? true)}</td>
-                <td>{u.roles.join(", ")}</td>
                 <td>
-                  <button onClick={() => del(u.id)}>Delete</button>
+                  {editingId === u.id ? (
+                    <input value={editForm?.full_name ?? ""} onChange={e => setEditForm({ ...(editForm as any), full_name: e.target.value })} />
+                  ) : (
+                    u.full_name ?? ""
+                  )}
+                </td>
+                <td>
+                  {editingId === u.id ? (
+                    <input type="checkbox" checked={!!editForm?.is_active} onChange={e => setEditForm({ ...(editForm as any), is_active: e.target.checked })} />
+                  ) : (
+                    String(u.is_active ?? true)
+                  )}
+                </td>
+                <td>
+                  {editingId === u.id ? (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {roles.map(r => (
+                        <label key={r.id} style={{ display: "inline-flex", gap: 6 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!editForm?.role_names.includes(r.name)}
+                            onChange={e => {
+                              const next = new Set(editForm?.role_names ?? []);
+                              if (e.target.checked) next.add(r.name); else next.delete(r.name);
+                              setEditForm({ ...(editForm as any), role_names: Array.from(next) });
+                            }}
+                          />
+                          {r.name}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    u.roles.join(", ")
+                  )}
+                </td>
+                <td>
+                  {editingId === u.id ? (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={saveEdit}>Save</button>
+                      <button onClick={cancelEdit}>Cancel</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => startEdit(u)}>Edit</button>
+                      <button onClick={() => del(u.id)}>Delete</button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
