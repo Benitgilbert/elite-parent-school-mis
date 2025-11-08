@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..db import get_db
 from ..auth import require_roles
+from ..mailer import send_email
 
 router = APIRouter(prefix="/secretary/applications", tags=["secretary"]) 
 
@@ -63,6 +64,20 @@ def approve_application(app_id: int, payload: schemas.ApplicationApprove, _: mod
 
     db.commit()
     db.refresh(student)
+
+    # notify applicant
+    if app.email:
+        send_email(
+            to=app.email,
+            subject="Your application has been approved",
+            body=(
+                f"Dear {app.first_name} {app.last_name},\n\n"
+                f"Your application (ref: {app.reference}) has been approved. "
+                f"Admission number: {student.admission_no}. Class: {student.class_name or ''}.\n\n"
+                f"Regards, Registrar"
+            ),
+        )
+
     return student
 
 
@@ -80,4 +95,18 @@ def reject_application(app_id: int, payload: schemas.ApplicationReject, _: model
     db.add(app)
     db.commit()
     db.refresh(app)
+
+    # notify applicant
+    if app.email:
+        send_email(
+            to=app.email,
+            subject="Your application has been rejected",
+            body=(
+                f"Dear {app.first_name} {app.last_name},\n\n"
+                f"Your application (ref: {app.reference}) has been rejected. "
+                f"Reason: {payload.reason}.\n\n"
+                f"Regards, Registrar"
+            ),
+        )
+
     return app

@@ -20,3 +20,14 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").capitalize()  # 'Lax'|'Strict'|'None'
 COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN")  # optional
 COOKIE_PATH = "/"
+
+# Email (SMTP) settings
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() == "true"
+SMTP_FROM = os.getenv("SMTP_FROM", "no-reply@example.com")
+
+# File uploads
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "uploads")))

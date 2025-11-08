@@ -48,7 +48,9 @@ Students APIs
 - DELETE /students/{id}
 
 Secretary (Registrar) — Applications
-- Public submit: POST /public/applications/ { first_name, last_name, date_of_birth?, gender?, class_name?, guardian_contact?, email? }
+- Public submit: POST /public/applications/ { first_name, last_name, date_of_birth?, gender?, class_name?, guardian_contact?, email? } → returns { reference }
+- With uploads: POST /public/applications/upload (multipart) fields same as above plus files birth_certificate, passport_photo
+- Status lookup: GET /public/applications/status/{reference}
 - List pending: GET /secretary/applications/?status=pending (roles: Registrar/Secretary, Headmaster, IT Support)
 - Approve: POST /secretary/applications/{id}/approve { admission_no, class_name? } → creates Student
 - Reject: POST /secretary/applications/{id}/reject { reason }
@@ -104,6 +106,8 @@ Infrastructure (Docker Compose)
 Environment variables used by backend
 - DATABASE_URL (default: postgresql+psycopg://postgres:postgres@localhost:5432/eps_mis)
 - REDIS_URL (default: redis://localhost:6379/0)
+- SMTP_HOST, SMTP_PORT (587), SMTP_USER, SMTP_PASSWORD, SMTP_TLS=true, SMTP_FROM
+- UPLOAD_DIR (default: backend/uploads)
 
 High-level architecture and structure
 - Roles and RBAC: The MIS is role-based (Student, Teacher, Headmaster, Directors, Accountant, Registrar, Patron/Matron, IT). Authorization should enforce RBAC on backend endpoints and frontend routes.

@@ -93,6 +93,7 @@ class ApplicationCreate(BaseModel):
 
 class ApplicationOut(BaseModel):
     id: int
+    reference: str
     first_name: str
     last_name: str
     date_of_birth: str | None = None

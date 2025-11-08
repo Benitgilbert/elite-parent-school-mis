@@ -16,8 +16,13 @@ def test_public_application_and_secretary_flow(client):
     res = client.post("/public/applications/", json=payload)
     assert res.status_code == 201, res.text
     app = res.json()
+    assert "reference" in app
 
-    # secretary (admin fixture has all roles) lists pending
+    # public status lookup
+    res = client.get(f"/public/applications/status/{app['reference']}")
+    assert res.status_code == 200
+
+# secretary (admin fixture has all roles) lists pending
     login(client)
     res = client.get("/secretary/applications/?status=pending")
     assert any(a["id"] == app["id"] for a in res.json())
@@ -27,6 +32,11 @@ def test_public_application_and_secretary_flow(client):
     assert res.status_code == 200
     student = res.json()
     assert student["admission_no"] == "ADM100"
+
+    # after approve, status lookup should be approved
+    res = client.get(f"/public/applications/status/{app['reference']}")
+    assert res.status_code == 200
+    assert res.json()["status"] == "approved"
 
     # application no longer pending
     res = client.get("/secretary/applications/?status=pending")
