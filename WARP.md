@@ -33,6 +33,13 @@ Auth & RBAC
 - Current user: GET /users/me (reads token from cookie or Authorization header)
 - Role-guarded example: GET /admin/ping requires one of: IT Support, Headmaster
 
+Admin APIs
+- GET /admin/roles — list roles
+- GET /admin/users — list users
+- POST /admin/users — create user { email, full_name?, password, role_names[] }
+- PATCH /admin/users/{id} — update { full_name?, is_active?, password?, role_names? }
+- DELETE /admin/users/{id}
+
 Lint/format (planned per README; run once configured)
 - Ruff check: ruff check backend/
 - Format (Black or Ruff): black backend/  (or)  ruff format backend/

@@ -17,6 +17,29 @@ class UserOut(BaseModel):
     id: int
     email: str
     full_name: str | None = None
+    is_active: bool | None = None
     roles: list[str] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RoleOut(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserCreate(BaseModel):
+    email: str
+    full_name: str | None = None
+    password: str
+    role_names: list[str] = []
+
+
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    is_active: bool | None = None
+    password: str | None = None
+    role_names: list[str] | None = None

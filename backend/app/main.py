@@ -5,6 +5,7 @@ from . import settings
 from .db import engine
 from .routers import auth as auth_router
 from .routers import users as users_router
+from .routers import admin as admin_router
 
 try:
     import redis  # type: ignore
@@ -25,6 +26,7 @@ app.add_middleware(
 # Routers
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(users_router.router, tags=["users"])
+app.include_router(admin_router.router)
 
 
 @app.get("/health")

@@ -17,6 +17,7 @@ def read_users_me(current_user = Depends(get_current_user)):
         id=current_user.id,
         email=current_user.email,
         full_name=current_user.full_name,
+        is_active=current_user.is_active,
         roles=[r.name for r in (current_user.roles or [])],
     )
 
