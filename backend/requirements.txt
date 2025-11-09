@@ -1,11 +1,13 @@
 fastapi
 uvicorn[standard]
 pydantic
+email-validator
 SQLAlchemy>=2.0
 alembic
 psycopg[binary]
 python-jose[cryptography]
-passlib[bcrypt]
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.1
 python-multipart
 redis
 weasyprint

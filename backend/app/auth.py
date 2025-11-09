@@ -12,7 +12,7 @@ from . import settings, models
 from .db import get_db
 from .security import verify_password
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 def authenticate_user(db: Session, email: str, password: str) -> models.User | None:

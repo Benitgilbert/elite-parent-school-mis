@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from textwrap import dedent
-from weasyprint import HTML, CSS
+try:
+    from weasyprint import HTML, CSS  # type: ignore
+except Exception:
+    HTML = None  # type: ignore
+    CSS = None  # type: ignore
 
 from . import settings
 
@@ -45,5 +49,7 @@ def render_application_receipt(app, student) -> bytes:
       </body>
     </html>
     """)
+    if HTML is None or CSS is None:
+        raise RuntimeError("WeasyPrint is not available on this system.")
     pdf = HTML(string=html).write_pdf(stylesheets=[CSS(string="@page { size: A4; margin: 24px; }")])
     return pdf

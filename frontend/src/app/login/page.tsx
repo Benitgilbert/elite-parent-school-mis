@@ -23,16 +23,35 @@ export default function LoginPage() {
   const onSubmit = async (data: FormData) => {
     setError(null);
     try {
-      const res = await fetch(process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000" + "/auth/login", {
+      const payload = {
+        email: data.email.trim().toLowerCase(),
+        password: data.password.trim(),
+      };
+      const res = await fetch(`/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
         credentials: "include",
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail ?? `Login failed (${res.status})`);
       }
+      // store token as a fallback if cookies aren't forwarded
+      const body = await res.json().catch(() => ({}));
+      if (body?.access_token) {
+        try { localStorage.setItem("access_token", body.access_token); } catch {}
+      }
+      // determine landing route based on roles
+      try {
+        const meRes = await fetch("/api/users/me", { credentials: "include", headers: body?.access_token ? { Authorization: `Bearer ${body.access_token}` } : undefined });
+        if (meRes.ok) {
+          const me = await meRes.json();
+          const roles: string[] = me?.roles ?? [];
+          if (roles.includes("IT Support")) return router.push("/admin");
+          if (roles.includes("Registrar/Secretary")) return router.push("/secretary");
+        }
+      } catch {}
       router.push("/me");
     } catch (e: any) {
       setError(e.message ?? "Login failed");

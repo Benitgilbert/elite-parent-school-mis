@@ -36,3 +36,6 @@ Thumbs.db
 # Reports
 reports/
 output/
+
+# Allow Secretary UI reports path to be tracked
+!frontend/src/app/secretary/reports/**

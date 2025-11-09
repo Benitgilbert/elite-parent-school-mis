@@ -12,7 +12,8 @@ from ..auth import require_roles, get_current_user
 
 router = APIRouter(prefix="/students", tags=["students"]) 
 
-StaffGuard = Depends(require_roles("Teacher", "Headmaster", "Registrar/Secretary", "IT Support"))
+# Allow both legacy and short role names for Secretary
+StaffGuard = Depends(require_roles("Teacher", "Headmaster", "Registrar/Secretary", "Secretary", "IT Support"))
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -30,6 +31,17 @@ def list_students(
 ):
     q = db.query(models.Student).order_by(models.Student.id.asc()).offset(skip).limit(limit)
     return q.all()
+
+
+# Also handle '/students' (no trailing slash) to avoid a 307 redirect
+@router.get("", response_model=list[schemas.StudentOut])
+def list_students_no_slash(
+    _: Annotated[models.User, StaffGuard],
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+):
+    return list_students(_, db, skip, limit)
 
 
 @router.post("/", response_model=schemas.StudentOut, status_code=201)

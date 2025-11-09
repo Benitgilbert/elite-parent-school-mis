@@ -15,7 +15,7 @@ import os
 
 router = APIRouter(prefix="/secretary/applications", tags=["secretary"]) 
 
-Guard = Depends(require_roles("Registrar/Secretary", "Headmaster", "IT Support"))
+Guard = Depends(require_roles("Registrar/Secretary", "Secretary", "Headmaster", "IT Support"))
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -30,6 +30,12 @@ def list_applications(_: models.User = Guard, db: Session = Depends(get_db), sta
     if status:
         q = q.filter(models.StudentApplication.status == status)
     return q.all()
+
+
+# Also handle '/secretary/applications' (no trailing slash) to avoid a 307 redirect
+@router.get("", response_model=list[schemas.ApplicationOut])
+def list_applications_no_slash(_: models.User = Guard, db: Session = Depends(get_db), status: str | None = Query(None)):
+    return list_applications(_, db, status)
 
 
 @router.get("/{app_id}", response_model=schemas.ApplicationOut)
@@ -72,21 +78,28 @@ def approve_application(app_id: int, payload: schemas.ApplicationApprove, _: mod
     if app.email:
         # Ensure uploads dir
         os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-        # Generate receipt PDF
-        pdf_bytes = render_application_receipt(app, student)
+        # Try to generate receipt PDF (optional)
+        pdf_bytes = None
+        try:
+            pdf_bytes = render_application_receipt(app, student)
+        except Exception:
+            pdf_bytes = None
+
         receipt_name = f"receipt_{app.reference}.pdf"
         receipt_path = os.path.join(settings.UPLOAD_DIR, receipt_name)
-        try:
-            with open(receipt_path, "wb") as f:
-                f.write(pdf_bytes)
-        except Exception:
-            pass
+        if pdf_bytes:
+            try:
+                with open(receipt_path, "wb") as f:
+                    f.write(pdf_bytes)
+            except Exception:
+                pass
 
+        attach_html = "<p>Attached is your admission receipt (PDF).</p>" if pdf_bytes else ""
         html = (
             f"<p>Dear {app.first_name} {app.last_name},</p>"
             f"<p>Your application (ref: <b>{app.reference}</b>) has been <b>approved</b>.</p>"
             f"<p>Admission number: <b>{student.admission_no}</b><br/>Class: <b>{student.class_name or ''}</b></p>"
-            f"<p>Attached is your admission receipt (PDF).</p>"
+            f"{attach_html}"
             f"<p>Regards,<br/>Registrar</p>"
         )
         text = (
@@ -95,13 +108,23 @@ def approve_application(app_id: int, payload: schemas.ApplicationApprove, _: mod
             f"Admission number: {student.admission_no}. Class: {student.class_name or ''}.\n\n"
             f"Regards, Registrar"
         )
-        send_email_advanced(
-            to=app.email,
-            subject="Application Approved",
-            text_body=text,
-            html_body=html,
-            attachments=[(receipt_name, pdf_bytes, "application/pdf")],
-        )
+        if pdf_bytes:
+            send_email_advanced(
+                to=app.email,
+                subject="Application Approved",
+                text_body=text,
+                html_body=html,
+                attachments=[(receipt_name, pdf_bytes, "application/pdf")],
+            )
+        else:
+            # Send without attachment
+            send_email_advanced(
+                to=app.email,
+                subject="Application Approved",
+                text_body=text,
+                html_body=html,
+                attachments=[],
+            )
 
     return student
 
