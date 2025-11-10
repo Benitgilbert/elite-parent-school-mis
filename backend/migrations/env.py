@@ -7,7 +7,7 @@ from alembic import context
 
 # Import application metadata so autogenerate can discover models
 from app.db import Base
-from app import settings  # provides default DATABASE_URL
+from app.settings import settings  # provides default DATABASE_URL
 from app import models  # noqa: F401 - ensure tables are imported
 
 # this is the Alembic Config object, which provides access to the values within the .ini file in use.
@@ -18,7 +18,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Override sqlalchemy.url from environment or settings
-db_url = os.getenv("DATABASE_URL", settings.DATABASE_URL)
+db_url = settings.database_url
 config.set_main_option("sqlalchemy.url", db_url)
 
 # add your model's MetaData object here for 'autogenerate' support

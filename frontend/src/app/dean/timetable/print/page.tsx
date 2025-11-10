@@ -8,7 +8,7 @@ import { Container, Typography, Paper, Stack, Button } from "@mui/material";
 type Config = { term: string; start_time: string; period_minutes: number; days: string[]; blocks: any[] } | null;
 type Slot = { id: number; term: string; day_of_week: string; period_index: number; class_name: string; subject: string; room?: string | null; teacher_id?: number | null };
 
-export default function TimetablePrintPage() {
+function Timetable() {
   const params = useSearchParams();
   const term = params.get("term") || "";
   const klass = params.get("class") || "";
@@ -104,5 +104,13 @@ export default function TimetablePrintPage() {
         }
       `}</style>
     </Container>
+  );
+}
+
+export default function TimetablePrintPage() {
+  return (
+    <React.Suspense fallback={<div>Loading...</div>}>
+      <Timetable />
+    </React.Suspense>
   );
 }

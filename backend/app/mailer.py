@@ -4,7 +4,7 @@ import smtplib
 from email.message import EmailMessage
 from typing import Iterable, Tuple
 
-from . import settings
+from .settings import settings
 
 Attachment = Tuple[str, bytes, str]  # (filename, data, mime_type)
 

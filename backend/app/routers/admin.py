@@ -11,7 +11,7 @@ from ..db import get_db
 from ..auth import require_roles
 from ..security import hash_password
 from ..logging_utils import get_logs, logs_as_text
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 import json
 
 try:
@@ -35,7 +35,7 @@ class SystemSettingsModel(BaseModel):
     cors_origins: list[str] = Field(default_factory=list)
     email_from: EmailStr | None = None
 
-    @validator("cors_origins", pre=True)
+    @field_validator("cors_origins", mode="before")
     def _ensure_list(cls, v):
         if v is None:
             return []

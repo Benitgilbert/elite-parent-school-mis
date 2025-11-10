@@ -1,5 +1,3 @@
-import os
-import sys
 from sqlalchemy.exc import IntegrityError
 
 from .db import SessionLocal
@@ -20,10 +18,10 @@ ROLE_NAMES = [
 ]
 
 
+from .settings import settings
+
 def main() -> int:
-    admin_email = os.getenv("ADMIN_EMAIL")
-    admin_password = os.getenv("ADMIN_PASSWORD")
-    if not admin_email or not admin_password:
+    if not settings.ADMIN_EMAIL or not settings.ADMIN_PASSWORD:
         print("Set ADMIN_EMAIL and ADMIN_PASSWORD environment variables before running seeder.")
         return 1
 
@@ -37,12 +35,12 @@ def main() -> int:
         db.flush()
 
         # Ensure admin user
-        user = db.query(models.User).filter(models.User.email == admin_email).first()
+        user = db.query(models.User).filter(models.User.email == settings.ADMIN_EMAIL).first()
         if not user:
             user = models.User(
-                email=admin_email,
+                email=settings.ADMIN_EMAIL,
                 full_name="Administrator",
-                hashed_password=hash_password(admin_password),
+                hashed_password=hash_password(settings.ADMIN_PASSWORD),
                 is_active=True,
             )
             db.add(user)
@@ -53,7 +51,7 @@ def main() -> int:
         user.roles = roles
 
         db.commit()
-        print(f"Seeded roles and admin user: {admin_email}")
+        print(f"Seeded roles and admin user: {settings.ADMIN_EMAIL}")
         return 0
     except IntegrityError as e:
         db.rollback()

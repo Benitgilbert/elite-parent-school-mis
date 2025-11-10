@@ -27,7 +27,7 @@ export default function AdminIndex() {
     }
   }, []);
 
-  const load = async () => {
+  const load = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -43,14 +43,15 @@ export default function AdminIndex() {
       const logsJson = await rLogs.json();
       setLogs(logsJson.items || []);
       setAudit(await rAudit.json());
-    } catch (e: any) {
-      setError(e.message || "Failed to load dashboard");
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(errorMessage || "Failed to load dashboard");
     } finally {
       setLoading(false);
     }
-  };
+  }, [authHeaders]);
 
-  React.useEffect(() => { load(); }, []);
+  React.useEffect(() => { load(); }, [load]);
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>

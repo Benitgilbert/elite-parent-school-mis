@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from datetime import date
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class Token(BaseModel):
@@ -73,12 +74,18 @@ class StudentOut(BaseModel):
     admission_no: str
     first_name: str
     last_name: str
-    date_of_birth: str | None = None
+    date_of_birth: date | None = None  # Accept date object from DB
     gender: str | None = None
     class_name: str | None = None
     guardian_contact: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer('date_of_birth')
+    def serialize_date_of_birth(self, value: date | None) -> str | None:
+        if value is None:
+            return None
+        return value.isoformat()
 
 
 class ApplicationCreate(BaseModel):
@@ -96,7 +103,7 @@ class ApplicationOut(BaseModel):
     reference: str
     first_name: str
     last_name: str
-    date_of_birth: str | None = None
+    date_of_birth: date | None = None  # Accept date object from DB
     gender: str | None = None
     class_name: str | None = None
     guardian_contact: str | None = None
@@ -104,6 +111,12 @@ class ApplicationOut(BaseModel):
     status: str
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer('date_of_birth')
+    def serialize_date_of_birth(self, value: date | None) -> str | None:
+        if value is None:
+            return None
+        return value.isoformat()
 
 
 class ApplicationApprove(BaseModel):
@@ -113,3 +126,45 @@ class ApplicationApprove(BaseModel):
 
 class ApplicationReject(BaseModel):
     reason: str
+
+
+# Communication Schemas
+class CommTemplateCreate(BaseModel):
+    key: str
+    name: str
+    description: str | None = None
+    subject: str | None = None
+    text_body: str | None = None
+    html_body: str | None = None
+    sms_template: str | None = None
+    is_active: bool = True
+
+
+class CommTemplateResponse(BaseModel):
+    id: int
+    key: str
+    name: str
+    description: str | None = None
+    subject: str | None = None
+    text_body: str | None = None
+    html_body: str | None = None
+    sms_template: str | None = None
+    is_active: bool
+    created_by: int
+    created_at: str
+    updated_at: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MessageSend(BaseModel):
+    template_key: str | None = None
+    to_email: str | None = None
+    to_phone: str | None = None
+    subject: str | None = None
+    content: str | None = None
+    html_content: str | None = None
+    sms_content: str | None = None
+    parameters: dict | None = None
+    send_email: bool = False
+    send_sms: bool = False

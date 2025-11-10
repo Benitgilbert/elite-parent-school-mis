@@ -111,7 +111,25 @@ def mark_attendance(
             db.add(m)
         else:
             db.add(models.Attendance(student_id=sid, date=d, status=status, remarks=remarks))
+    
     db.commit()
+    
+    # Send notifications to parents for attendance updates
+    try:
+        from notification_service import NotificationService
+        notification_service = NotificationService(db)
+        
+        for it in items:
+            sid = it.get("student_id")
+            status = (it.get("status") or "").upper()
+            remarks = it.get("remarks")
+            if sid and status:
+                notification_service.notify_attendance_updated(sid, d, status, remarks)
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.error(f"Failed to send attendance update notifications: {str(e)}")
+    
     return {"ok": True, "count": len(items)}
 
 

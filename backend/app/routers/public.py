@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..db import get_db
-from .. import settings
+from ..settings import settings
 import os
 import secrets
 import string

@@ -133,6 +133,23 @@ def create_case(
     db.add(case)
     db.commit()
     db.refresh(case)
+    
+    # Notify parents about new disciplinary case
+    try:
+        from ..notification_service import NotificationService
+        notification_service = NotificationService(db)
+        notification_service.notify_disciplinary_case_created(
+            student_id=student_id,
+            case_id=case.id,
+            category=category or "General",
+            severity=severity,
+            description=description
+        )
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.error(f"Failed to send disciplinary case notification: {e}")
+    
     return {"id": case.id}
 
 
@@ -161,6 +178,24 @@ def update_case(
     db.add(case)
     db.commit()
     db.refresh(case)
+    
+    # Notify parents about disciplinary case update
+    try:
+        from ..notification_service import NotificationService
+        notification_service = NotificationService(db)
+        notification_service.notify_disciplinary_case_updated(
+            student_id=case.student_id,
+            case_id=case.id,
+            category=case.category,
+            severity=case.severity,
+            status=case.status,
+            description=case.description
+        )
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.error(f"Failed to send disciplinary case update notification: {e}")
+    
     return {"ok": True}
 
 

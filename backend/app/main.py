@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-from . import settings
+from .settings import settings
 from .logging_utils import install_memory_handler
 from .db import engine, Base
 from .routers import auth as auth_router
@@ -21,6 +21,7 @@ from .routers import report_cards as report_cards_router
 from .routers import grades as grades_router
 from .routers import fees as fees_router
 from .routers import accounting as accounting_router
+from .routers import communication as communication_router
 
 try:
     import redis  # type: ignore
@@ -65,6 +66,7 @@ app.include_router(report_cards_router.router)
 app.include_router(grades_router.router)
 app.include_router(fees_router.router)
 app.include_router(accounting_router.router)
+app.include_router(communication_router.router, prefix="/communication", tags=["communication"])
 
 
 @app.get("/health")

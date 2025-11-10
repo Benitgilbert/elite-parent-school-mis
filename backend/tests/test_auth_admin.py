@@ -13,6 +13,10 @@ def test_auth_cookie_and_me(client):
 
 
 def test_admin_user_crud(client):
+    # authenticate first
+    res = client.post("/auth/login", json={"email": "admin@example.com", "password": "secret123"})
+    assert res.status_code == 200
+    
     # create
     payload = {
         "email": "teacher1@example.com",

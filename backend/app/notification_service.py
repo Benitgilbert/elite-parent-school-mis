@@ -2,11 +2,11 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from models import (
+from app.models import (
     User, Student, Notification, NotificationPreference, ParentStudentLink,
     NotificationType, ExamResult, Attendance, FeePayment, DisciplinaryCase
 )
-from mailer import send_email_with_template
+from app.mailer import send_email_advanced
 import json
 import logging
 
@@ -376,17 +376,24 @@ class NotificationService:
     def send_email_notification(self, user: User, subject: str, message: str):
         """Send email notification to user"""
         try:
-            # Use existing email template system
-            template_data = {
-                "subject": subject,
-                "message": message,
-                "user_name": user.full_name or user.username
-            }
+            # Use existing email system with HTML template
+            html_body = f"""
+            <html>
+            <body>
+                <h2>{subject}</h2>
+                <p>Hello {user.full_name or user.username},</p>
+                <p>{message}</p>
+                <hr>
+                <p><small>This is an automated message from the school management system.</small></p>
+            </body>
+            </html>
+            """
             
-            send_email_with_template(
-                to_email=user.email,
-                template_key="notification_general",
-                template_data=template_data
+            send_email_advanced(
+                to=user.email,
+                subject=subject,
+                text_body=message,
+                html_body=html_body
             )
             logger.info(f"Email notification sent to {user.email}")
         except Exception as e:

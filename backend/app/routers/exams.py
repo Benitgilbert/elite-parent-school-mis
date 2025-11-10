@@ -198,6 +198,10 @@ def upsert_results(
     if not isinstance(items, list):
         raise HTTPException(status_code=400, detail="items must be a list")
 
+    # Get assessment details for notifications
+    assessment = db.query(models.Assessment).filter(models.Assessment.id == aid).first()
+    assessment_name = assessment.name if assessment else "Assessment"
+
     for it in items:
         sid = it.get("student_id")
         score = it.get("score")
@@ -213,5 +217,22 @@ def upsert_results(
             db.add(existing)
         else:
             db.add(models.ExamResult(assessment_id=aid, student_id=sid, score=float(score)))
+    
     db.commit()
+    
+    # Send notifications to parents for grade updates
+    try:
+        from notification_service import NotificationService
+        notification_service = NotificationService(db)
+        
+        for it in items:
+            sid = it.get("student_id")
+            score = it.get("score")
+            if sid and score is not None:
+                notification_service.notify_grade_updated(sid, assessment_name, float(score))
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.error(f"Failed to send grade update notifications: {str(e)}")
+    
     return {"ok": True, "count": len(items)}

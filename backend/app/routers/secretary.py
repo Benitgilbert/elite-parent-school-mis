@@ -9,7 +9,7 @@ from .. import models, schemas
 from ..db import get_db
 from ..auth import require_roles
 from ..mailer import send_email, send_email_advanced
-from .. import settings
+from ..settings import settings
 from ..pdf import render_application_receipt
 import os
 

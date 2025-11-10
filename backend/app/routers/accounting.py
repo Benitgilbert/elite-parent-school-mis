@@ -68,9 +68,23 @@ def create_invoice(
         student_id = int(payload["student_id"])  # type: ignore
         term = str(payload["term"])  # type: ignore
         amount = float(payload["amount"])  # type: ignore
+        due_date = payload.get("due_date")
+        description = payload.get("description")
+        late_fee = float(payload.get("late_fee", 0.0))
     except Exception:
         raise HTTPException(status_code=400, detail="student_id, term, amount required")
-    inv = models.FeeInvoice(student_id=student_id, term=term, amount=amount, balance=amount, status="unpaid")
+    
+    inv = models.FeeInvoice(
+        student_id=student_id, 
+        term=term, 
+        amount=amount, 
+        balance=amount, 
+        status="unpaid",
+        due_date=due_date,
+        description=description,
+        late_fee=late_fee,
+        created_by=current_user.id
+    )
     db.add(inv)
     db.commit()
     db.refresh(inv)
@@ -90,19 +104,41 @@ def create_payment(
         amount = float(payload["amount"])  # type: ignore
         method = payload.get("method")
         reference = payload.get("reference")
+        notes = payload.get("notes")
+        status = payload.get("status", "confirmed")
     except Exception:
         raise HTTPException(status_code=400, detail="invoice_id, amount required")
     inv = db.query(models.FeeInvoice).filter(models.FeeInvoice.id == invoice_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="invoice not found")
-    pay = models.FeePayment(invoice_id=invoice_id, amount=amount, method=method, reference=reference)
+    pay = models.FeePayment(
+        invoice_id=invoice_id, 
+        amount=amount, 
+        method=method, 
+        reference=reference,
+        notes=notes,
+        status=status,
+        processed_by=current_user.id
+    )
     db.add(pay)
     # update balance/status
     inv.balance = max(0.0, float(inv.balance) - amount)
     inv.status = "paid" if inv.balance <= 0 else ("partial" if inv.balance < inv.amount else "unpaid")
     db.add(inv)
+    
     db.commit()
     db.refresh(pay)
+    
+    # Send notifications to parents for fee payments
+    try:
+        from notification_service import NotificationService
+        notification_service = NotificationService(db)
+        notification_service.notify_fee_payment(inv.student_id, amount, inv.term, inv.balance)
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.error(f"Failed to send fee payment notifications: {str(e)}")
+    
     return {"id": pay.id}
 
 
@@ -337,6 +373,242 @@ def export_payroll_csv(
         out.append(f"{r.id},{r.staff_name},{r.month},{r.gross},{r.deductions},{r.net},{r.paid_date.isoformat() if r.paid_date else ''},{r.reference or ''}")
     csv = "\n".join(out)
     return Response(content=csv, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=payroll.csv"})
+
+
+# Fee management enhancements
+
+@router.put("/fees/invoices/{invoice_id}", status_code=200)
+def update_invoice(
+    invoice_id: int,
+    payload: dict,
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+):
+    _ensure_can_write(current_user)
+    inv = db.query(models.FeeInvoice).filter(models.FeeInvoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Update allowed fields
+    if "due_date" in payload:
+        inv.due_date = payload["due_date"]
+    if "description" in payload:
+        inv.description = payload["description"]
+    if "late_fee" in payload:
+        inv.late_fee = float(payload["late_fee"])
+    
+    db.add(inv)
+    db.commit()
+    db.refresh(inv)
+    return {"id": inv.id, "status": "updated"}
+
+
+@router.delete("/fees/invoices/{invoice_id}", status_code=204)
+def delete_invoice(
+    invoice_id: int,
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+):
+    _ensure_can_write(current_user)
+    inv = db.query(models.FeeInvoice).filter(models.FeeInvoice.id == invoice_id).first()
+    if not inv:
+        return
+    
+    # Check if there are any payments
+    payment_count = db.query(models.FeePayment).filter(models.FeePayment.invoice_id == invoice_id).count()
+    if payment_count > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete invoice with payments")
+    
+    db.delete(inv)
+    db.commit()
+
+
+@router.get("/fees/overdue")
+def list_overdue_invoices(
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+    term: Optional[str] = Query(None),
+    days_overdue: Optional[int] = Query(7, description="Minimum days overdue"),
+):
+    from datetime import date, timedelta
+    
+    cutoff_date = date.today() - timedelta(days=days_overdue)
+    q = db.query(models.FeeInvoice).filter(
+        models.FeeInvoice.status.in_(["unpaid", "partial"]),
+        models.FeeInvoice.due_date <= cutoff_date
+    )
+    if term:
+        q = q.filter(models.FeeInvoice.term == term)
+    
+    rows = q.order_by(models.FeeInvoice.due_date.asc()).all()
+    out = []
+    for inv in rows:
+        student = db.query(models.Student).filter(models.Student.id == inv.student_id).first()
+        days_overdue_calc = (date.today() - inv.due_date).days if inv.due_date else 0
+        out.append({
+            "id": inv.id,
+            "student_id": inv.student_id,
+            "student_name": f"{student.first_name} {student.last_name}" if student else "Unknown",
+            "term": inv.term,
+            "amount": inv.amount,
+            "balance": inv.balance,
+            "due_date": inv.due_date.isoformat() if inv.due_date else None,
+            "days_overdue": days_overdue_calc,
+            "late_fee": inv.late_fee,
+            "total_due": inv.balance + inv.late_fee
+        })
+    return {"overdue_invoices": out}
+
+
+@router.post("/fees/waivers", status_code=201)
+def create_fee_waiver(
+    payload: dict,
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+):
+    _ensure_can_write(current_user)
+    try:
+        student_id = int(payload["student_id"])  # type: ignore
+        waiver_type = str(payload["waiver_type"])  # type: ignore
+        amount = float(payload["amount"])  # type: ignore
+        percentage = float(payload.get("percentage", 0.0))
+        effective_date = payload.get("effective_date")
+        reason = payload.get("reason")
+        invoice_id = payload.get("invoice_id")
+    except Exception:
+        raise HTTPException(status_code=400, detail="student_id, waiver_type, amount required")
+    
+    waiver = models.FeeWaiver(
+        student_id=student_id,
+        invoice_id=invoice_id,
+        waiver_type=waiver_type,
+        amount=amount,
+        percentage=percentage,
+        reason=reason,
+        effective_date=effective_date,
+        approved_by=current_user.id,
+        status="approved"  # Auto-approve for now, can add approval workflow later
+    )
+    db.add(waiver)
+    
+    # If specific invoice, apply waiver to reduce balance
+    if invoice_id:
+        inv = db.query(models.FeeInvoice).filter(models.FeeInvoice.id == invoice_id).first()
+        if inv:
+            waiver_amount = amount if amount > 0 else (inv.balance * percentage / 100)
+            inv.balance = max(0.0, inv.balance - waiver_amount)
+            inv.status = "paid" if inv.balance <= 0 else ("partial" if inv.balance < inv.amount else "unpaid")
+            db.add(inv)
+    
+    db.commit()
+    db.refresh(waiver)
+    return {"id": waiver.id}
+
+
+@router.get("/fees/waivers")
+def list_fee_waivers(
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+    student_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+):
+    q = db.query(models.FeeWaiver)
+    if student_id:
+        q = q.filter(models.FeeWaiver.student_id == student_id)
+    if status:
+        q = q.filter(models.FeeWaiver.status == status)
+    
+    rows = q.order_by(models.FeeWaiver.created_at.desc()).all()
+    out = []
+    for waiver in rows:
+        student = db.query(models.Student).filter(models.Student.id == waiver.student_id).first()
+        out.append({
+            "id": waiver.id,
+            "student_id": waiver.student_id,
+            "student_name": f"{student.first_name} {student.last_name}" if student else "Unknown",
+            "invoice_id": waiver.invoice_id,
+            "waiver_type": waiver.waiver_type,
+            "amount": waiver.amount,
+            "percentage": waiver.percentage,
+            "reason": waiver.reason,
+            "status": waiver.status,
+            "effective_date": waiver.effective_date.isoformat() if waiver.effective_date else None,
+            "created_at": waiver.created_at.isoformat()
+        })
+    return {"waivers": out}
+
+
+@router.get("/fees/structures")
+def list_fee_structures(
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+    class_name: Optional[str] = Query(None),
+    term: Optional[str] = Query(None),
+    is_active: Optional[bool] = Query(True),
+):
+    q = db.query(models.FeeStructure)
+    if class_name:
+        q = q.filter(models.FeeStructure.class_name == class_name)
+    if term:
+        q = q.filter(models.FeeStructure.term == term)
+    if is_active is not None:
+        q = q.filter(models.FeeStructure.is_active == is_active)
+    
+    rows = q.order_by(models.FeeStructure.name.asc()).all()
+    return {"structures": [{
+        "id": r.id,
+        "name": r.name,
+        "class_name": r.class_name,
+        "term": r.term,
+        "tuition_fee": r.tuition_fee,
+        "boarding_fee": r.boarding_fee,
+        "activity_fee": r.activity_fee,
+        "exam_fee": r.exam_fee,
+        "other_fees": r.other_fees,
+        "total_amount": r.total_amount,
+        "is_active": r.is_active
+    } for r in rows]}
+
+
+@router.post("/fees/structures", status_code=201)
+def create_fee_structure(
+    payload: dict,
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+):
+    _ensure_can_write(current_user)
+    try:
+        name = str(payload["name"])  # type: ignore
+        class_name = str(payload["class_name"])  # type: ignore
+        term = str(payload["term"])  # type: ignore
+        tuition_fee = float(payload.get("tuition_fee", 0.0))
+        boarding_fee = float(payload.get("boarding_fee", 0.0))
+        activity_fee = float(payload.get("activity_fee", 0.0))
+        exam_fee = float(payload.get("exam_fee", 0.0))
+        other_fees = float(payload.get("other_fees", 0.0))
+        total_amount = tuition_fee + boarding_fee + activity_fee + exam_fee + other_fees
+    except Exception:
+        raise HTTPException(status_code=400, detail="name, class_name, term required")
+    
+    structure = models.FeeStructure(
+        name=name,
+        class_name=class_name,
+        term=term,
+        tuition_fee=tuition_fee,
+        boarding_fee=boarding_fee,
+        activity_fee=activity_fee,
+        exam_fee=exam_fee,
+        other_fees=other_fees,
+        total_amount=total_amount
+    )
+    db.add(structure)
+    db.commit()
+    db.refresh(structure)
+    return {"id": structure.id}
 
 
 # Settings: categories and payment methods

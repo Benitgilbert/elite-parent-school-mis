@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from textwrap import dedent
 try:
     from weasyprint import HTML, CSS  # type: ignore
@@ -8,11 +8,11 @@ except Exception:
     HTML = None  # type: ignore
     CSS = None  # type: ignore
 
-from . import settings
+from .settings import settings
 
 
 def render_application_receipt(app, student) -> bytes:
-    issued = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    issued = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     school = "Elite Parent School"
     html = dedent(f"""
     <html>
