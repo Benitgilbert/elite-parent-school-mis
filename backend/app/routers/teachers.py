@@ -11,7 +11,7 @@ from ..auth import require_roles
 
 router = APIRouter(prefix="/teachers", tags=["teachers"]) 
 
-Guard = Depends(require_roles("Headmaster", "Dean", "Director of Studies", "Registrar/Secretary", "IT Support"))
+Guard = Depends(require_roles("Headmaster", "Director", "Dean", "Director of Studies", "Registrar/Secretary", "IT Support"))
 
 
 # Teachers CRUD

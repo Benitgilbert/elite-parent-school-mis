@@ -10,7 +10,7 @@ from ..auth import require_roles
 
 router = APIRouter(prefix="/analytics", tags=["analytics"]) 
 
-Guard = Depends(require_roles("Teacher", "Headmaster", "Dean", "Director of Studies", "Registrar/Secretary", "IT Support"))
+Guard = Depends(require_roles("Teacher", "Headmaster", "Director", "Dean", "Director of Studies", "Registrar/Secretary", "IT Support"))
 
 
 def _class_report(db: Session, term: Optional[str], class_name: Optional[str]):

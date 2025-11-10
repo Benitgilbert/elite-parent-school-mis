@@ -15,7 +15,7 @@ import os
 
 router = APIRouter(prefix="/secretary/applications", tags=["secretary"]) 
 
-Guard = Depends(require_roles("Registrar/Secretary", "Secretary", "Headmaster", "IT Support"))
+Guard = Depends(require_roles("Registrar/Secretary", "Secretary", "Headmaster", "Director", "IT Support"))
 
 
 def _parse_date(value: str | None) -> date | None:

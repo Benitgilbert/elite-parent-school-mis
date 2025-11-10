@@ -8,11 +8,12 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..db import get_db
-from ..auth import require_roles
+from ..auth import require_roles, get_current_user
 
 router = APIRouter(prefix="/timetable", tags=["timetable"]) 
 
 Guard = Depends(require_roles("Headmaster", "Dean", "Director of Studies", "IT Support"))
+StudentGuard = Depends(require_roles("Student"))
 
 
 # Config
@@ -307,3 +308,39 @@ def conflicts(
             })
 
     return {"conflicts": conflicts}
+
+
+def _current_student(db: Session, user: models.User) -> models.Student | None:
+    link = db.query(models.UserStudentLink).filter(models.UserStudentLink.user_id == user.id).first()
+    if not link:
+        return None
+    s = db.query(models.Student).filter(models.Student.id == link.student_id).first()
+    return s
+
+
+@router.get("/my")
+def my_timetable(
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    _: Annotated[models.User, StudentGuard],
+    db: Session = Depends(get_db),
+    term: str = Query(...),
+):
+    s = _current_student(db, current_user)
+    if not s or not s.class_name:
+        raise HTTPException(status_code=403, detail="Student link or class not configured")
+    rows = (
+        db.query(models.TimetableSlot)
+        .filter(models.TimetableSlot.term == term, models.TimetableSlot.class_name == s.class_name)
+        .order_by(models.TimetableSlot.day_of_week.asc(), models.TimetableSlot.period_index.asc())
+        .all()
+    )
+    out = [
+        {
+            "day_of_week": r.day_of_week,
+            "period_index": r.period_index,
+            "subject": r.subject,
+            "room": r.room,
+        }
+        for r in rows
+    ]
+    return {"class_name": s.class_name, "term": term, "items": out}

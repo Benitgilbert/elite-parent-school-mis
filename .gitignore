@@ -39,3 +39,9 @@ output/
 
 # Allow Secretary UI reports path to be tracked
 !frontend/src/app/secretary/reports/**
+# Allow Accountant UI reports path to be tracked
+!frontend/src/app/accountant/reports/**
+# Allow Discipline/Patron/Matron UI reports paths to be tracked
+!frontend/src/app/discipline/reports/**
+!frontend/src/app/patron/reports/**
+!frontend/src/app/matron/reports/**

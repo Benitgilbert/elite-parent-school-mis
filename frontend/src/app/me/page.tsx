@@ -43,6 +43,34 @@ export default function MePage() {
       router.replace("/teacher");
       return;
     }
+    if (roles.includes("Student")) {
+      router.replace("/student");
+      return;
+    }
+    if (roles.includes("Accountant")) {
+      router.replace("/accountant");
+      return;
+    }
+    if (roles.includes("Headmaster")) {
+      router.replace("/director");
+      return;
+    }
+    if (roles.includes("Director")) {
+      router.replace("/director");
+      return;
+    }
+    if (roles.includes("Director of Discipline")) {
+      router.replace("/discipline");
+      return;
+    }
+    if (roles.includes("Patron")) {
+      router.replace("/patron");
+      return;
+    }
+    if (roles.includes("Matron")) {
+      router.replace("/matron");
+      return;
+    }
   }, [data, router]);
 
   if (error) {

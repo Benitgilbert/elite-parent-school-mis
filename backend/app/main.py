@@ -18,6 +18,9 @@ from .routers import teachers as teachers_router
 from .routers import analytics as analytics_router
 from .routers import discipline as discipline_router
 from .routers import report_cards as report_cards_router
+from .routers import grades as grades_router
+from .routers import fees as fees_router
+from .routers import accounting as accounting_router
 
 try:
     import redis  # type: ignore
@@ -59,6 +62,9 @@ app.include_router(teachers_router.router)
 app.include_router(analytics_router.router)
 app.include_router(discipline_router.router)
 app.include_router(report_cards_router.router)
+app.include_router(grades_router.router)
+app.include_router(fees_router.router)
+app.include_router(accounting_router.router)
 
 
 @app.get("/health")

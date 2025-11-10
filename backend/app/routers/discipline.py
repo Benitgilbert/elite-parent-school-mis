@@ -23,8 +23,22 @@ Guard = Depends(require_roles(ROLE_DIRECTOR, ROLE_PATRON, ROLE_MATRON, ROLE_DEAN
 
 
 def _can_write(user: models.User) -> bool:
-    roles = set(user.roles or [])
-    return any(r in roles for r in [ROLE_DIRECTOR, ROLE_PATRON, ROLE_MATRON, "Headmaster", "IT Support"])  # Dean/DOS read-only
+    role_names = {getattr(r, "name", str(r)) for r in (user.roles or [])}
+    return any(name in role_names for name in [ROLE_DIRECTOR, ROLE_PATRON, ROLE_MATRON, "Headmaster", "IT Support"])  # Dean/DOS read-only
+
+
+def _enforce_gender_scope(db: Session, user: models.User, student_id: int):
+    """If user is Patron, only allow Male students; if Matron, only Female."""
+    role_names = {getattr(r, "name", str(r)) for r in (user.roles or [])}
+    if ROLE_PATRON in role_names or ROLE_MATRON in role_names:
+        s = db.query(models.Student).filter(models.Student.id == student_id).first()
+        if not s:
+            raise HTTPException(status_code=404, detail="student not found")
+        g = (s.gender or "").strip().lower()
+        if ROLE_PATRON in role_names and g not in ("male", "m"):
+            raise HTTPException(status_code=403, detail="Patron may only manage Male students")
+        if ROLE_MATRON in role_names and g not in ("female", "f"):
+            raise HTTPException(status_code=403, detail="Matron may only manage Female students")
 
 
 @router.get("/cases")
@@ -34,11 +48,19 @@ def list_cases(
     student_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     severity: Optional[str] = Query(None),
+    gender: Optional[str] = Query(None, description="Filter by student gender"),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     limit: int = Query(100, ge=1, le=1000),
 ):
     q = db.query(models.DisciplinaryCase)
+    if gender:
+        # join to students to filter by gender
+        q = (
+            db.query(models.DisciplinaryCase)
+            .join(models.Student, models.Student.id == models.DisciplinaryCase.student_id)
+            .filter(models.Student.gender == gender)
+        )
     if student_id is not None:
         q = q.filter(models.DisciplinaryCase.student_id == student_id)
     if status:
@@ -85,6 +107,7 @@ def create_case(
         student_id = int(payload.get("student_id"))
     except Exception:
         raise HTTPException(status_code=400, detail="student_id is required")
+    _enforce_gender_scope(db, me, student_id)
     category = (payload.get("category") or "").strip()
     severity = (payload.get("severity") or "").strip() or "Minor"
     status = (payload.get("status") or "").strip() or "open"
@@ -125,6 +148,8 @@ def update_case(
     case = db.query(models.DisciplinaryCase).filter(models.DisciplinaryCase.id == case_id).first()
     if not case:
         raise HTTPException(status_code=404, detail="not found")
+    # enforce gender scope on existing case student
+    _enforce_gender_scope(db, me, case.student_id)
     for key in ["category", "severity", "status", "description", "actions_taken"]:
         if key in payload:
             setattr(case, key, payload.get(key))
@@ -209,3 +234,25 @@ def full_report(
         }
         for r in rows
     ]
+
+
+@router.get("/report/export")
+def full_report_export(
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+    student_id: int = Query(...),
+):
+    rows = (
+        db.query(models.DisciplinaryCase)
+        .filter(models.DisciplinaryCase.student_id == student_id)
+        .order_by(models.DisciplinaryCase.date.desc())
+        .all()
+    )
+    from fastapi import Response
+    out = ["date,category,severity,status,description,actions_taken"]
+    for r in rows:
+        desc = (r.description or "").replace(",", ";")
+        act = (r.actions_taken or "").replace(",", ";")
+        out.append(f"{r.date.isoformat()},{r.category},{r.severity},{r.status},{desc},{act}")
+    csv = "\n".join(out)
+    return Response(content=csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=discipline_{student_id}.csv"})

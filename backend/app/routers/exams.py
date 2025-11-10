@@ -13,7 +13,7 @@ from ..auth import require_roles
 
 router = APIRouter(prefix="/exams", tags=["exams"]) 
 
-Guard = Depends(require_roles("Teacher", "Headmaster", "Dean", "Director of Studies", "Registrar/Secretary", "IT Support"))
+Guard = Depends(require_roles("Teacher", "Headmaster", "Director", "Dean", "Director of Studies", "Registrar/Secretary", "IT Support"))
 
 
 def _parse_date(value: str | None) -> date | None:

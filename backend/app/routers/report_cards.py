@@ -6,11 +6,11 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..db import get_db
-from ..auth import require_roles
+from ..auth import require_roles, get_current_user
 
 router = APIRouter(prefix="/report-cards", tags=["report-cards"]) 
 
-Guard = Depends(require_roles("Teacher", "Headmaster", "Dean", "Director of Studies", "Registrar/Secretary", "IT Support"))
+Guard = Depends(require_roles("Teacher", "Headmaster", "Director", "Dean", "Director of Studies", "Registrar/Secretary", "IT Support", "Student"))
 
 
 def _results_for_term(db: Session, term: Optional[str]):
@@ -58,13 +58,26 @@ def class_report_cards_csv(
     return Response(content=csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
+def _current_student_id(db: Session, user: models.User) -> int | None:
+    link = db.query(models.UserStudentLink).filter(models.UserStudentLink.user_id == user.id).first()
+    return link.student_id if link else None
+
+
 @router.get("/student")
 def student_report_card_csv(
+    current_user: Annotated[models.User, Depends(get_current_user)],
     _: Annotated[models.User, Guard],
     db: Session = Depends(get_db),
     student_id: int = Query(...),
     term: Optional[str] = Query(None),
 ):
+    roles = {r.name for r in (current_user.roles or [])}
+    if "Student" in roles:
+        my_sid = _current_student_id(db, current_user)
+        if not my_sid:
+            raise HTTPException(status_code=403, detail="Student link not configured")
+        # Force to own student_id regardless of provided value
+        student_id = my_sid
     assessments, results = _results_for_term(db, term)
     if not assessments:
         return Response(content="assessment_id,subject,score\n", media_type="text/csv")
@@ -77,3 +90,20 @@ def student_report_card_csv(
     csv = "\n".join(lines)
     filename = f"student-report-card-{student_id}-{term or 'all'}.csv"
     return Response(content=csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+@router.get("/my")
+def my_report_card_csv(
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    _: Annotated[models.User, Guard],
+    db: Session = Depends(get_db),
+    term: Optional[str] = Query(None),
+):
+    roles = {r.name for r in (current_user.roles or [])}
+    if "Student" not in roles:
+        raise HTTPException(status_code=403, detail="Only students can use /report-cards/my")
+    sid = _current_student_id(db, current_user)
+    if not sid:
+        raise HTTPException(status_code=403, detail="Student link not configured")
+    # Delegate to student-specific logic
+    return student_report_card_csv(current_user, current_user, db, sid, term)

@@ -9,11 +9,12 @@ from sqlalchemy import and_
 
 from .. import models
 from ..db import get_db
-from ..auth import require_roles
+from ..auth import require_roles, get_current_user
 
 router = APIRouter(prefix="/attendance", tags=["attendance"]) 
 
-Guard = Depends(require_roles("Teacher", "Headmaster", "Registrar/Secretary", "Secretary", "IT Support"))
+Guard = Depends(require_roles("Teacher", "Headmaster", "Director", "Registrar/Secretary", "Secretary", "IT Support"))
+StudentGuard = Depends(require_roles("Student"))
 
 
 def _parse_date(value: str | None) -> date:
@@ -112,3 +113,36 @@ def mark_attendance(
             db.add(models.Attendance(student_id=sid, date=d, status=status, remarks=remarks))
     db.commit()
     return {"ok": True, "count": len(items)}
+
+
+def _current_student_id(db: Session, user: models.User) -> int | None:
+    link = db.query(models.UserStudentLink).filter(models.UserStudentLink.user_id == user.id).first()
+    return link.student_id if link else None
+
+
+@router.get("/my")
+def my_attendance(
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    _: Annotated[models.User, StudentGuard],
+    db: Session = Depends(get_db),
+    limit: int = Query(30, ge=1, le=90),
+):
+    sid = _current_student_id(db, current_user)
+    if not sid:
+        raise HTTPException(status_code=403, detail="Student link not configured")
+    rows = (
+        db.query(models.Attendance)
+        .filter(models.Attendance.student_id == sid)
+        .order_by(models.Attendance.date.desc())
+        .limit(limit)
+        .all()
+    )
+    out = [
+        {
+            "date": r.date.isoformat(),
+            "status": r.status,
+            "remarks": r.remarks,
+        }
+        for r in rows
+    ]
+    return {"items": out}

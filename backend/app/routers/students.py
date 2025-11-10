@@ -13,7 +13,7 @@ from ..auth import require_roles, get_current_user
 router = APIRouter(prefix="/students", tags=["students"]) 
 
 # Allow both legacy and short role names for Secretary
-StaffGuard = Depends(require_roles("Teacher", "Headmaster", "Registrar/Secretary", "Secretary", "IT Support"))
+StaffGuard = Depends(require_roles("Teacher", "Headmaster", "Director", "Registrar/Secretary", "Secretary", "IT Support"))
 
 
 def _parse_date(value: str | None) -> date | None:

@@ -265,3 +265,77 @@ class TimetableSlot(Base):
     __table_args__ = (
         UniqueConstraint("term", "day_of_week", "period_index", "class_name", name="uq_slot_unique"),
     )
+
+
+class UserStudentLink(Base):
+    __tablename__ = "user_student_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    student_id: Mapped[int] = mapped_column(Integer, ForeignKey("students.id", ondelete="CASCADE"), index=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_user_student_link_user"),
+    )
+
+
+class FeeInvoice(Base):
+    __tablename__ = "fee_invoices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    student_id: Mapped[int] = mapped_column(Integer, index=True)
+    term: Mapped[str] = mapped_column(String(50), index=True)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    balance: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), index=True, default="unpaid")  # unpaid|partial|paid
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class FeePayment(Base):
+    __tablename__ = "fee_payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    invoice_id: Mapped[int] = mapped_column(Integer, index=True)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    date: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    method: Mapped[str | None] = mapped_column(String(50))
+    reference: Mapped[str | None] = mapped_column(String(100), index=True)
+
+
+class ExpenseCategory(Base):
+    __tablename__ = "expense_categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+
+
+class PaymentMethod(Base):
+    __tablename__ = "payment_methods"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+
+
+class Expense(Base):
+    __tablename__ = "expenses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    date: Mapped[Date] = mapped_column(Date, index=True)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    category: Mapped[str] = mapped_column(String(100), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    payee: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class Payroll(Base):
+    __tablename__ = "payroll"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    staff_name: Mapped[str] = mapped_column(String(255), index=True)
+    month: Mapped[str] = mapped_column(String(20), index=True)  # e.g., 2025-01
+    gross: Mapped[float] = mapped_column(Float, nullable=False)
+    deductions: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    net: Mapped[float] = mapped_column(Float, nullable=False)
+    paid_date: Mapped[Date | None] = mapped_column(Date)
+    reference: Mapped[str | None] = mapped_column(String(100), index=True)
